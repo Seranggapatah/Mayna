@@ -143,8 +143,8 @@
   #status.error { color: #b3261e; }
   kbd { font: inherit; font-size: 12px; padding: 1px 5px; border: 1px solid var(--line); border-radius: 5px; }
 
-  /* Tombol tampil/sembunyikan panel: hanya di mobile */
-  #toggle { display: none; }
+  /* Tombol tampil/sembunyikan panel dan pilihan tampilan: hanya di mobile */
+  #toggle, #view { display: none; }
 
   /* =================== MOBILE =================== */
   @media (max-width: 760px), (orientation: landscape) and (max-height: 520px) {
@@ -248,7 +248,43 @@
     #toggle svg { width: 22px; height: 22px; }
     #toggle .show { display: none; }
 
+    /* Pilihan tampilan: Full body / Close up */
+    #view {
+      display: flex;
+      position: fixed;
+      z-index: 3;
+      top: calc(16px + var(--safe-t));
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 3px;
+      border-radius: 999px;
+      background: var(--glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 6px 20px -8px rgba(82, 20, 32, 0.5);
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    #view button {
+      padding: 6px 12px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--ink-soft);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    #view button[aria-pressed="true"] { background: var(--lip); color: #fff; }
+    /* layar sempit: viseme pindah ke bawah tombol pilihan supaya tidak bertabrakan */
+    @media (max-width: 420px) {
+      #viseme { top: calc(62px + var(--safe-t)); left: 50%; transform: translateX(-50%); }
+      body.hidden-ui #viseme { transform: translate(-50%, -10px); }
+    }
+
     body.hidden-ui #toggle { opacity: 0.55; }
+    body.hidden-ui #view { opacity: 0; transform: translate(-50%, -10px); pointer-events: none; }
     body.hidden-ui #toggle .hide { display: none; }
     body.hidden-ui #toggle .show { display: block; }
     body.hidden-ui .panel { transform: translateY(calc(100% + 24px)); opacity: 0; pointer-events: none; }
@@ -267,7 +303,7 @@
 <main>
   <section class="stage">
     <!-- data-focus: area artboard (x0 y0 x1 y1) yang dibuat memenuhi canvas: badan dari kepala sampai kaki -->
-    <canvas id="mouth" data-focus="455 -30 1355 2590" aria-label="Talking mouth animation"></canvas>
+    <canvas id="mouth" data-focus="455 -30 1355 2590" data-focus-y="0.5" aria-label="Talking mouth animation"></canvas>
     <span id="viseme">viseme 0 · silence</span>
   </section>
 
@@ -314,6 +350,11 @@
   </section>
 </main>
 
+<div id="view" role="group" aria-label="View">
+  <button type="button" data-view="full" aria-pressed="true">Full body</button>
+  <button type="button" data-view="close" aria-pressed="false">Close up</button>
+</div>
+
 <button id="toggle" type="button" aria-label="Hide controls" aria-expanded="true" aria-controls="panel">
   <svg class="hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   <svg class="show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -328,12 +369,42 @@
     const mobile = matchMedia("(max-width: 760px), (orientation: landscape) and (max-height: 520px)");
     const btn = document.getElementById("toggle");
     const settings = document.getElementById("settings");
+    const canvas = document.getElementById("mouth");
+    const side = matchMedia("(orientation: landscape) and (max-height: 520px)");
+
+    // Area artboard (x0 y0 x1 y1) per tampilan. focusY = letak tengah area di layar
+    // (0 = atas, 1 = bawah); "panel" dipakai saat panel kontrol sedang tampil.
+    const VIEWS = {
+      full:  { focus: "455 -30 1355 2590", focusY: 0.5, panel: 0.5 },   // kepala sampai kaki
+      close: { focus: "640 150 1130 850",  focusY: 0.5, panel: 0.38 },  // kepala + bahu
+    };
+    let view = "full";
+
+    function applyView() {
+      // Desktop selalu full body; pilihan tampilan hanya untuk mobile.
+      const v = VIEWS[mobile.matches ? view : "full"];
+      // panel di bawah (portrait) menutupi bagian bawah layar: naikkan wajah sedikit
+      const panelShown = mobile.matches && !side.matches && !document.body.classList.contains("hidden-ui");
+      canvas.dataset.focus = v.focus;
+      canvas.dataset.focusY = String(panelShown ? v.panel : v.focusY);
+      document.querySelectorAll("#view button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
+      if (window.mouthApp) window.mouthApp.refit();
+    }
+    document.getElementById("view").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-view]");
+      if (!b) return;
+      view = b.dataset.view;
+      try { localStorage.setItem("mouth.view", view); } catch (e) {}
+      applyView();
+    });
+    try { if (VIEWS[localStorage.getItem("mouth.view")]) view = localStorage.getItem("mouth.view"); } catch (e) {}
 
     function setHidden(hidden) {
       document.body.classList.toggle("hidden-ui", hidden);
       btn.setAttribute("aria-expanded", String(!hidden));
       btn.setAttribute("aria-label", hidden ? "Show controls" : "Hide controls");
       if (hidden && document.activeElement) document.activeElement.blur();
+      applyView();
     }
     btn.addEventListener("click", () => {
       const hidden = !document.body.classList.contains("hidden-ui");

@@ -89,8 +89,11 @@ const GREETING_TRIGGER = "greetings";   // properti trigger yang dipicu tombol G
   //   data-focus-y="0.45"       letak tengah area itu di canvas (0 = atas, 1 = bawah)
   const FIT = { contain: rive.Fit.Contain, cover: rive.Fit.Cover, fitWidth: rive.Fit.FitWidth, fitHeight: rive.Fit.FitHeight };
   const ALIGN = { center: rive.Alignment.Center, topCenter: rive.Alignment.TopCenter, bottomCenter: rive.Alignment.BottomCenter };
-  const focus = (ui.canvas.dataset.focus || "").trim().split(/[\s,]+/).map(Number);
-  const hasFocus = focus.length === 4 && focus.every(Number.isFinite) && focus[2] > focus[0] && focus[3] > focus[1];
+  // Dibaca ulang tiap kali, supaya halaman bisa mengganti data-focus (mis. full body / close up).
+  function readFocus() {
+    const f = (ui.canvas.dataset.focus || "").trim().split(/[\s,]+/).map(Number);
+    return f.length === 4 && f.every(Number.isFinite) && f[2] > f[0] && f[3] > f[1] ? f : null;
+  }
 
   // Ukuran gambar canvas mengikuti ukuran tampilnya (boleh tidak persegi, mis. layar HP).
   function fitCanvas(r) {
@@ -99,12 +102,13 @@ const GREETING_TRIGGER = "greetings";   // properti trigger yang dipicu tombol G
     const h = Math.round(ui.canvas.clientHeight * dpr);
     if (!w || !h) return;
     if (ui.canvas.width !== w || ui.canvas.height !== h) r.resizeDrawingSurfaceToCanvas();
-    if (hasFocus) zoomToFocus(r);
+    const focus = readFocus();
+    if (focus) zoomToFocus(r, focus);
   }
 
   // Gambar artboard lebih besar dari canvas supaya area data-focus memenuhi layar.
   // Frame layout Rive = kotak tujuan artboard dalam piksel canvas.
-  function zoomToFocus(r) {
+  function zoomToFocus(r, focus) {
     if (!r.loaded || !r.artboard) return;
     const b = r.bounds;
     const aw = b.maxX - b.minX, ah = b.maxY - b.minY;
@@ -354,6 +358,6 @@ const GREETING_TRIGGER = "greetings";   // properti trigger yang dipicu tombol G
     ui.voice.disabled = true;
   }
 
-  // refit(): panggil setelah mengubah data-focus-y / ukuran canvas dari luar.
+  // refit(): panggil setelah mengubah data-focus / data-focus-y / ukuran canvas dari luar.
   window.mouthApp = { speak, stop, refit: () => fitCanvas(riveInstance), get state() { return play; } };
 })();
