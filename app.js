@@ -17,7 +17,7 @@
 //  lewat server lokal:  cd app && python3 -m http.server 8000
 //  lalu buka http://localhost:8000
 // ============================================================================
-const RIV_FILE = "mayna_avatar_23.riv";
+const RIV_FILE = "mayna_avatar_23a.riv";
 const ARTBOARD = "Main";
 const STATE_MACHINE = "State Machine 1";
 const VIEW_MODEL = "VM";
